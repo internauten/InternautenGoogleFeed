@@ -34,15 +34,15 @@ class InternautenGoogleFeed extends Module
     {
         $this->name = 'internautengooglefeed';
         $this->tab = 'seo';
-        $this->version = '1.0.0';
+        $this->version = '1.0.1';
         $this->author = 'die.internauten.ch GmbH';
         $this->need_instance = 0;
         $this->bootstrap = true;
 
         parent::__construct();
 
-        $this->displayName = $this->l('Internauten Google Feed');
-        $this->description = $this->l('Stellt alle gueltigen Shop-Produkte als tokengeschuetzten Feed fuer Google Merchant bereit.');
+        $this->displayName = $this->l('Internauten Google und Microsoft (Bing) Feed');
+        $this->description = $this->l('Stellt alle gueltigen Shop-Produkte als tokengeschuetzten Feed fuer Google und Microsoft Merchant bereit.');
         $this->ps_versions_compliancy = [
             'min' => '1.7.8.0',
             'max' => _PS_VERSION_,

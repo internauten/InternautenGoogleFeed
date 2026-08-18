@@ -1,4 +1,4 @@
-# Feed für Google Merchant
+# Feed für Google und Microsoft (Bing) Merchant
 
 [![Release Workflow](https://github.com/internauten/InternautenGoogleFeed/actions/workflows/release.yml/badge.svg)](https://github.com/internauten/InternautenGoogleFeed/actions/workflows/release.yml)
 [![PHP Lint](https://github.com/internauten/InternautenGoogleFeed/actions/workflows/php-lint.yml/badge.svg)](https://github.com/internauten/InternautenGoogleFeed/actions/workflows/php-lint.yml)
@@ -19,9 +19,36 @@ Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
 
 ## Installation
 
+### Via BO
+
+1. Download latest Release aus dem Repo [Releases](https://github.com/internauten/InternautenGoogleFeed/releases)
+2. Upload Modul in Prestashop BO
+
+### Manuell per FTP oä.
+
 1. Den Modulordner `internautengooglefeed` in `modules/` der PrestaShop-Installation kopieren.
 2. Im Backoffice unter `Module` nach `Internauten Google Feed` suchen und installieren.
-3. In der Modulkonfiguration die angezeigte Feed-URL kopieren und im Google Merchant Center als geplanten Abruf hinterlegen.
+3. In der Modulkonfiguration die angezeigte Feed-URL kopieren und im Google und Microsoft Merchant Center als geplanten Abruf hinterlegen.
+
+### Konfiguration Google Merchant Center
+
+1. Im PrestaShop-Backoffice die Modulkonfiguration öffnen und die angezeigte Feed-URL kopieren.
+2. Im Google Merchant Center zu **Produkte > Feeds** gehen. ([Google Merchant Center](https://merchants.google.com/))
+3. Einen neuen Feed mit dem Ziel **Geplanter Abruf** anlegen.
+4. Als Abruf-URL die kopierte Modul-URL eintragen.
+5. Abruffrequenz und Abrufzeit so wählen, dass der Shop-Stand regelmässig aktualisiert wird.
+6. Den Feed speichern und die erste Verarbeitung abwarten.
+7. Falls Kategorien oder Taxonomien im Shop geändert werden, die Feed-URL im Merchant Center nicht ändern, aber den Abruf erneut laufen lassen.
+
+### Konfiguration Microsoft Merchant Center
+
+1. Im PrestaShop-Backoffice die gleiche Feed-URL aus der Modulkonfiguration kopieren.
+2. Im Microsoft Merchant Center den Bereich für Produktfeeds bzw. Datenquellen öffnen. ([Microsoft hat das Merchant Center hier versteckt](https://ui.ads.microsoft.com/))
+3. Einen neuen Feed als URL- oder Abruf-Feed anlegen.
+4. Dieselbe Feed-URL eintragen, die auch für Google verwendet wird.
+5. Falls Microsoft eine Zielgruppe, Sprache oder Region verlangt, die Shop-Sprache und den passenden Markt auswählen.
+6. Den Feed speichern und den Import prüfen.
+7. Bei Ablehnungen zuerst Produktname, Marke, GTIN/EAN, MPN und Kategoriezuordnung kontrollieren, da Microsoft hier oft strenger prüft als Google.
 
 ## Funktionsweise
 
