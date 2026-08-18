@@ -1,5 +1,12 @@
 # Feed für Google Merchant
 
+[![Release Workflow](https://github.com/internauten/InternautenGoogleFeed/actions/workflows/release.yml/badge.svg)](https://github.com/internauten/InternautenGoogleFeed/actions/workflows/release.yml)
+[![PHP Lint](https://github.com/internauten/InternautenGoogleFeed/actions/workflows/php-lint.yml/badge.svg)](https://github.com/internauten/InternautenGoogleFeed/actions/workflows/php-lint.yml)
+[![Latest Release](https://img.shields.io/github/v/release/internauten/InternautenGoogleFeed?sort=semver)](https://github.com/internauten/InternautenGoogleFeed/releases)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-pink)](https://github.com/sponsors/internauten)
+[![GitHub stars](https://img.shields.io/github/stars/internauten/InternautenGoogleFeed?style=social)](https://github.com/internauten/InternautenGoogleFeed/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
 Dieses PrestaShop-Modul (getestet mit 9.1.4) stellt alle aktuellen Produkte des Shops als tokengeschützten Online-Feed für das Google Merchant Center bereit. Der Feed wird bei jedem Abruf live aus dem Katalog erzeugt.
 
 ## Modulordner
