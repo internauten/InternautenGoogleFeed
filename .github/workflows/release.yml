@@ -1,0 +1,76 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag format
+        run: |
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag format: ${GITHUB_REF_NAME}"
+            echo "Expected format: vX.X.X (example: v1.2.3)"
+            exit 1
+          fi
+
+      - name: Build module ZIP
+        run: |
+          python3 - <<'PY'
+          import os
+          import zipfile
+
+          module_dir = "internautengooglefeed"
+          tag = os.environ.get("GITHUB_REF_NAME", "untagged")
+          out = f"internautengooglefeed-module-{tag}.zip"
+
+          with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+              for base, _, files in os.walk(module_dir):
+                  for name in files:
+                      path = os.path.join(base, name)
+                      arcname = os.path.relpath(path, ".")
+                      zf.write(path, arcname)
+
+          print(out)
+          PY
+
+      - name: Generate changelog since previous tag
+        run: |
+          current_tag="${GITHUB_REF_NAME}"
+          previous_tag="$(git tag --sort=-version:refname \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | grep -Fxv "${current_tag}" \
+            | head -n 1 || true)"
+
+          {
+            echo "## Changelog"
+            echo
+            if [[ -n "${previous_tag}" ]]; then
+              echo "Changes since ${previous_tag}:"
+              echo
+              git log "${previous_tag}..${current_tag}" --no-merges --pretty=format:'- %s (%h)'
+            else
+              echo "Initial release changes:"
+              echo
+              git log "${current_tag}" --no-merges --pretty=format:'- %s (%h)'
+            fi
+          } > RELEASE_CHANGELOG.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_CHANGELOG.md
+          files: |
+            internautengooglefeed-module-${{ github.ref_name }}.zip

@@ -13,6 +13,8 @@ class InternautenGoogleFeed extends Module
     public const CONF_INCLUDE_OUT_OF_STOCK = 'IGF_INCLUDE_OUT_OF_STOCK';
     public const CONF_USE_COMBINATIONS = 'IGF_USE_COMBINATIONS';
     public const CONF_IDENTIFIER_PREFIX = 'IGF_IDENTIFIER_PREFIX';
+    public const CONF_GOOGLE_PRODUCT_CATEGORY = 'IGF_GOOGLE_PRODUCT_CATEGORY';
+    public const CONF_GOOGLE_PRODUCT_CATEGORY_MAP = 'IGF_GOOGLE_PRODUCT_CATEGORY_MAP';
     public const CONF_IMAGE_TYPE = 'IGF_IMAGE_TYPE';
     public const CONF_CHECK_LIMIT = 'IGF_CHECK_LIMIT';
     public const CONF_NORMALIZE_TITLE_CASE = 'IGF_NORMALIZE_TITLE_CASE';
@@ -25,6 +27,7 @@ class InternautenGoogleFeed extends Module
     private const MIN_TITLE_CASE_MIN_LENGTH = 2;
     private const MAX_TITLE_CASE_MIN_LENGTH = 30;
     private const DEFAULT_KEEP_UPPERCASE_WORDS = 'USB, HDMI, LED, LCD, OLED, GPS, WLAN, WIFI, USV, ABS, PVC, INOX, XXL, XXXL, MwSt';
+    private const DEFAULT_GOOGLE_PRODUCT_CATEGORY_MAP = "336:1926\n343:422\n335:1926\n337:674\n338:53\n339:784\n340:37\n333:1926\n342:1926\n323:1926\n324:1926\n325:1926\n326:1926\n327:1926\n328:1926\n329:1926\n330:421\n331:2605\n332:1926\n334:2933\n344:1926";
     private const REPORT_MAX_ROWS = 500;
 
     public function __construct()
@@ -54,6 +57,8 @@ class InternautenGoogleFeed extends Module
             && Configuration::updateValue(self::CONF_INCLUDE_OUT_OF_STOCK, 0)
             && Configuration::updateValue(self::CONF_USE_COMBINATIONS, 1)
             && Configuration::updateValue(self::CONF_IDENTIFIER_PREFIX, '')
+            && Configuration::updateValue(self::CONF_GOOGLE_PRODUCT_CATEGORY, '')
+            && Configuration::updateValue(self::CONF_GOOGLE_PRODUCT_CATEGORY_MAP, self::DEFAULT_GOOGLE_PRODUCT_CATEGORY_MAP)
             && Configuration::updateValue(self::CONF_IMAGE_TYPE, '')
             && Configuration::updateValue(self::CONF_CHECK_LIMIT, self::DEFAULT_CHECK_LIMIT)
             && Configuration::updateValue(self::CONF_NORMALIZE_TITLE_CASE, 1)
@@ -70,6 +75,8 @@ class InternautenGoogleFeed extends Module
             self::CONF_INCLUDE_OUT_OF_STOCK,
             self::CONF_USE_COMBINATIONS,
             self::CONF_IDENTIFIER_PREFIX,
+            self::CONF_GOOGLE_PRODUCT_CATEGORY,
+            self::CONF_GOOGLE_PRODUCT_CATEGORY_MAP,
             self::CONF_IMAGE_TYPE,
             self::CONF_CHECK_LIMIT,
             self::CONF_NORMALIZE_TITLE_CASE,
@@ -121,6 +128,17 @@ class InternautenGoogleFeed extends Module
             return $this->displayError($this->l('Das Artikelnummer-Praefix darf nur Buchstaben, Zahlen, "-" und "_" enthalten (max. 20 Zeichen).'));
         }
 
+        $googleProductCategory = trim((string) Tools::getValue(self::CONF_GOOGLE_PRODUCT_CATEGORY));
+        if ($googleProductCategory !== '' && !preg_match('/^[0-9]{1,20}$/', $googleProductCategory)) {
+            return $this->displayError($this->l('Die Google Product Category ID darf nur Zahlen enthalten. Beispiel: 178.'));
+        }
+
+        $categoryMapRaw = (string) Tools::getValue(self::CONF_GOOGLE_PRODUCT_CATEGORY_MAP);
+        $categoryMap = $this->parseGoogleProductCategoryMap($categoryMapRaw);
+        if ($categoryMap === false) {
+            return $this->displayError($this->l('Das Mapping fuer Google Product Categories ist ungültig. Bitte pro Zeile "kategorie_id:taxonomy_id" verwenden.'));
+        }
+
         $checkLimit = (int) Tools::getValue(self::CONF_CHECK_LIMIT);
         if ($checkLimit < 0) {
             return $this->displayError($this->l('Das Pruef-Limit muss 0 oder groesser sein.'));
@@ -153,6 +171,8 @@ class InternautenGoogleFeed extends Module
         Configuration::updateValue(self::CONF_INCLUDE_OUT_OF_STOCK, (int) (bool) Tools::getValue(self::CONF_INCLUDE_OUT_OF_STOCK));
         Configuration::updateValue(self::CONF_USE_COMBINATIONS, (int) (bool) Tools::getValue(self::CONF_USE_COMBINATIONS));
         Configuration::updateValue(self::CONF_IDENTIFIER_PREFIX, $prefix);
+        Configuration::updateValue(self::CONF_GOOGLE_PRODUCT_CATEGORY, $googleProductCategory);
+        Configuration::updateValue(self::CONF_GOOGLE_PRODUCT_CATEGORY_MAP, implode("\n", $categoryMap));
         Configuration::updateValue(self::CONF_IMAGE_TYPE, $imageType);
         Configuration::updateValue(self::CONF_CHECK_LIMIT, $checkLimit);
         Configuration::updateValue(self::CONF_NORMALIZE_TITLE_CASE, (int) (bool) Tools::getValue(self::CONF_NORMALIZE_TITLE_CASE));
@@ -200,6 +220,8 @@ class InternautenGoogleFeed extends Module
             'include_out_of_stock' => (bool) Configuration::get(self::CONF_INCLUDE_OUT_OF_STOCK),
             'use_combinations' => (bool) Configuration::get(self::CONF_USE_COMBINATIONS),
             'identifier_prefix' => (string) Configuration::get(self::CONF_IDENTIFIER_PREFIX),
+            'google_product_category' => (string) Configuration::get(self::CONF_GOOGLE_PRODUCT_CATEGORY),
+            'google_product_category_map' => $this->getGoogleProductCategoryMap(),
             'image_type' => (string) Configuration::get(self::CONF_IMAGE_TYPE),
             'normalize_title_case' => $this->isTitleCaseNormalizationEnabled(),
             'title_case_min_length' => $this->getTitleCaseMinLength(),
@@ -241,6 +263,66 @@ class InternautenGoogleFeed extends Module
         }
 
         return $length;
+    }
+
+    /**
+     * @return array<int, array<int, int>>
+     */
+    public function getGoogleProductCategoryMap()
+    {
+        $raw = (string) Configuration::get(self::CONF_GOOGLE_PRODUCT_CATEGORY_MAP);
+        $map = [];
+
+        foreach (preg_split('/\r\n|\r|\n/u', $raw, -1, PREG_SPLIT_NO_EMPTY) as $line) {
+            $line = trim((string) $line);
+            if ($line === '') {
+                continue;
+            }
+
+            $parts = explode(':', $line, 2);
+            if (count($parts) !== 2) {
+                continue;
+            }
+
+            $idCategory = (int) trim((string) $parts[0]);
+            $taxonomyId = (int) trim((string) $parts[1]);
+            if ($idCategory > 0 && $taxonomyId > 0) {
+                $map[$idCategory] = $taxonomyId;
+            }
+        }
+
+        return $map;
+    }
+
+    public function parseGoogleProductCategoryMap($raw)
+    {
+        $lines = preg_split('/\r\n|\r|\n/u', (string) $raw, -1, PREG_SPLIT_NO_EMPTY);
+        if ($lines === false) {
+            return false;
+        }
+
+        $map = [];
+        foreach ($lines as $line) {
+            $line = trim((string) $line);
+            if ($line === '') {
+                continue;
+            }
+
+            $parts = explode(':', $line, 2);
+            if (count($parts) !== 2) {
+                return false;
+            }
+
+            $idCategory = (int) trim((string) $parts[0]);
+            $taxonomyId = (int) trim((string) $parts[1]);
+            if ($idCategory <= 0 || $taxonomyId <= 0) {
+                return false;
+            }
+
+            $map[] = $idCategory . ':' . $taxonomyId;
+        }
+
+        return $map;
     }
 
     /**
@@ -414,6 +496,20 @@ class InternautenGoogleFeed extends Module
                     ],
                     [
                         'type' => 'text',
+                        'label' => $this->l('Google Product Category ID'),
+                        'name' => self::CONF_GOOGLE_PRODUCT_CATEGORY,
+                        'desc' => $this->l('Optional. Wird als <g:google_product_category> in jedem Feed-Item gesetzt. Für Microsoft Merchant oft erforderlich, z. B. 178.'),
+                    ],
+                    [
+                        'type' => 'textarea',
+                        'label' => $this->l('Kategorien-Mapping fuer Google Product Category'),
+                        'name' => self::CONF_GOOGLE_PRODUCT_CATEGORY_MAP,
+                        'cols' => 60,
+                        'rows' => 4,
+                        'desc' => $this->l('Pro Zeile "kategorie_id:taxonomy_id". Beispiel: "12:178". Wenn eine Produktkategorie hier gemappt ist, wird diese Taxonomie-ID im Feed verwendet.'),
+                    ],
+                    [
+                        'type' => 'text',
                         'label' => $this->l('Limit fuer die Pruefung'),
                         'name' => self::CONF_CHECK_LIMIT,
                         'desc' => $this->l('Maximale Anzahl geprueter Items. 0 bedeutet: alle Produkte pruefen.'),
@@ -454,6 +550,8 @@ class InternautenGoogleFeed extends Module
             self::CONF_INCLUDE_OUT_OF_STOCK => (int) Configuration::get(self::CONF_INCLUDE_OUT_OF_STOCK),
             self::CONF_USE_COMBINATIONS => (int) Configuration::get(self::CONF_USE_COMBINATIONS),
             self::CONF_IDENTIFIER_PREFIX => (string) Configuration::get(self::CONF_IDENTIFIER_PREFIX),
+            self::CONF_GOOGLE_PRODUCT_CATEGORY => (string) Configuration::get(self::CONF_GOOGLE_PRODUCT_CATEGORY),
+            self::CONF_GOOGLE_PRODUCT_CATEGORY_MAP => (string) Configuration::get(self::CONF_GOOGLE_PRODUCT_CATEGORY_MAP),
             self::CONF_IMAGE_TYPE => (string) Configuration::get(self::CONF_IMAGE_TYPE),
             self::CONF_CHECK_LIMIT => (int) Configuration::get(self::CONF_CHECK_LIMIT),
             self::CONF_NORMALIZE_TITLE_CASE => (int) $this->isTitleCaseNormalizationEnabled(),

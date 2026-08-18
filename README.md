@@ -112,6 +112,57 @@ In solchen Fällen den Markenschutz abschalten. Die Ausnahmeliste bleibt davon u
 
 Vorbelegung der Ausnahmeliste: `USB, HDMI, LED, LCD, OLED, GPS, WLAN, WIFI, USV, ABS, PVC, INOX, XXL, XXXL, MwSt`
 
+## Google Product Taxonomy Mapping für Microsoft Merchant
+
+Für Microsoft Merchant ist die korrekte Taxonomie-ID entscheidend. Das Modul unterstützt dafür ein globales Feld sowie ein Kategorien-Mapping mit der Syntax `kategorie_id:taxonomy_id`.
+
+### Standard-Mapping für diesen Shop
+
+```text
+336:1926
+343:422
+335:1926
+337:674
+338:53
+339:784
+340:37
+333:1926
+342:1926
+323:1926
+324:1926
+325:1926
+326:1926
+327:1926
+328:1926
+329:1926
+330:421
+331:2605
+332:1926
+334:2933
+344:1926
+```
+
+Bedeutung:
+
+- `1926` = Whisky / Whiskey
+- `421` = Wein / Wine
+- `2605` = Rum
+- `2933` = Liqueur / Whisky Liqueur
+- `422` = Food
+- `674` = Glassware / Gläser
+- `53` = Gift Cards / Gutscheine
+- `784` = Books / Literatur
+- `37` = Collectibles / Raritäten
+
+> Hinweis: Die Whisky-/Raritäten-/Geschenkset-Kategorien wurden bewusst auf den Whisky-Taxonomiepfad `1926` gemappt, da sie in diesem Shop inhaltlich als Whisky- bzw. Spirituosenprodukte gelten.
+
+### MPN / GTIN / identifier_exists
+
+- `gtin` wird aus `ean13`, `isbn` oder `upc` befüllt, falls vorhanden.
+- `mpn` wird als Hersteller-/Modellnummer interpretiert und nur genutzt, wenn sie im Produkt hinterlegt ist.
+- `identifier_exists` wird automatisch auf `yes` gesetzt, wenn GTIN oder MPN vorhanden ist.
+- Fehlen beide, bleibt `identifier_exists=no` gültig, ist aber für Microsoft Merchant riskanter und kann bei manchen Kategorien zu Ablehnungen führen.
+
 ## Welche Produkte enthält der Feed?
 
 Berücksichtigt werden Produkte, die
@@ -148,6 +199,105 @@ Hinweise:
 | `views/templates/admin/report.tpl`         | Darstellung des Prüfberichts                          |
 
 Die Modul-Metadaten (`config.xml` bzw. `config_<iso>.xml`) werden von PrestaShop selbst aus der Modulklasse erzeugt, sobald die Modulliste im Backoffice aufgerufen wird. Sie sind deshalb per `.gitignore` ausgeschlossen und müssen nicht gepflegt werden. Änderungen an Name, Version, Beschreibung oder Tab erfolgen ausschliesslich in `internautengooglefeed.php`; PrestaShop schreibt die Datei neu, sobald sie älter als die Modulklasse ist.
+
+## CI/CD und Release
+
+Das Repository enthält zwei GitHub Actions und ein Release-Skript für die Versionsverwaltung:
+
+- `.github/workflows/php-lint.yml`: prüft bei jedem Push und Pull Request alle PHP-Dateien mit `php -l`.
+- `.github/workflows/release.yml`: erzeugt bei einem Tag im Format `vX.Y.Z` ein GitHub Release und hängt das ZIP-Modul als Asset an.
+- `scripts/tag-release.sh`: liest die Modul-Version aus `internautengooglefeed.php`, erstellt den passenden Git-Tag und kann ihn optional direkt nach `origin` pushen.
+
+Beispiel:
+
+```bash
+./scripts/tag-release.sh
+./scripts/tag-release.sh --local-only
+```
+
+Das Release-Tagging erfolgt also immer aus der aktuellen Modulversion, sodass Version und Git-Tag konsistent bleiben.
+
+### Manuelles Release auslösen
+
+1. Die Modulversion in `internautengooglefeed/internautengooglefeed.php` auf die neue Version erhöhen.
+2. Alle Änderungen committen.
+3. Das Tag-Script ausführen:
+
+```bash
+./scripts/tag-release.sh
+```
+
+4. Optional nur lokal erzeugen:
+
+```bash
+./scripts/tag-release.sh --local-only
+```
+
+5. Der GitHub-Workflow erstellt dann automatisch das Release-Asset und veröffentlicht das GitHub Release mit dem passenden ZIP.
+
+# Analyse: Kompatibilität mit Microsoft Merchant Center
+
+Danke für den Feed! Ich habe ihn genau durchgeschaut. Hier das Ergebnis:
+
+## ✅ Grundsätzlich kompatibel – das passt schon gut
+
+- Namespace korrekt (`xmlns:g="http://base.google.com/ns/1.0"`) – Microsoft nutzt denselben
+- RSS 2.0 Grundstruktur ✓
+- CDATA-Nutzung sauber ✓
+- Preisformat `100.00 CHF` ✓ (beide erwarten `Zahl Währung`)
+- `condition`, `availability`, `gtin`, `brand` – Standard-konform ✓
+
+## ⚠️ Kritische Punkte für Microsoft Merchant Center
+
+### 1. **`localhost:8081`-URLs** 🔴
+
+Das ist vermutlich nur deine Dev-Umgebung, aber sicherheitshalber der Hinweis: Für den Produktiv-Feed müssen `link` und `image_link` öffentlich erreichbare Domains sein. Microsoft crawlt genau wie Google aktiv und lehnt sonst alles ab.
+
+### 2. **Gutschein-Produkte (id 1-4)** 🟡
+
+Hier gibt's einen wichtigen Unterschied:
+
+- Google hat eine eigene Kategorie/Behandlung für Gutscheine, akzeptiert `identifier_exists: no` meist unkompliziert
+- **Microsoft ist bei generischen Produkten ohne GTIN/MPN strenger** und lehnt teils ganze Items ab, wenn `identifier_exists: no` gesetzt ist, aber keine Zusatzbegründung (z. B. `custom_label` oder korrekte Google-Produktkategorie) vorhanden ist
+
+**Empfehlung:** Für Gutscheine zusätzlich `<g:google_product_category>` mit korrekter Google-Taxonomie-ID setzen (Gutscheine haben dort eine spezifische Kategorie-ID). Microsoft nutzt teils dieselbe Taxonomie.
+
+### 3. **Fehlendes `g:mpn` bei Produkten ohne GTIN** 🟡
+
+Bei den Gutscheinen fehlt sowohl `gtin` als auch `mpn` – das ist ok, wenn `identifier_exists: no`, aber Microsoft verlangt das teils _strikter validiert_ als Google.
+
+### 4. **`google_product_category` fehlt komplett** 🔴
+
+Das ist der **wichtigste Punkt**. Du nutzt nur `g:product_type` (deine eigene Shop-Kategorie), aber nicht:
+
+```xml
+<g:google_product_category>178</g:google_product_category>
+```
+
+- Google akzeptiert Feeds oft auch ohne, da es automatisch mappt
+- **Microsoft Merchant Center verlangt in der Regel zwingend eine gültige Google Product Taxonomy ID** – ohne diese werden Produkte häufig abgelehnt oder disapproved
+
+### 5. **Fehlendes `g:additional_image_link`, `g:mpn` bei Whisky-Flaschen**
+
+Nicht kritisch, aber für bessere Anzeigenqualität empfehlenswert.
+
+## Microsoft Merchant Center – finaler Status
+
+Das Modul ist für die Microsoft-Variante grundsätzlich kompatibel, sofern die Feed-URL öffentlich erreichbar ist und die Taxonomie korrekt gesetzt wird.
+
+### Kritische Punkte für Microsoft
+
+1. Öffentlich erreichbare Produkt-URLs und Bild-URLs erforderlich.
+2. `google_product_category` bzw. die Kategorie-Mapping-IDs dürfen nicht fehlen.
+3. Produkte ohne GTIN/MPN sind möglich, aber riskanter und brauchen ein sauberes Mapping + Marke.
+4. Der Feed bleibt weiterhin Google-kompatibel und nutzt dieselben Standard-Namespaces.
+
+### Aktueller Stand
+
+- XML-Struktur: kompatibel mit Google/Microsoft Merchant
+- Taxonomie-Mapping: implementiert und konfigurierbar
+- MPN/GTIN-Handling: gemäß Standards und Produktdaten vorhanden
+- Feed-Prüfung: im Backoffice verfügbar
 
 ## Ursprüngliche Anforderung
 

@@ -40,6 +40,12 @@ class InternautenGoogleFeedBuilder
     private $identifierPrefix;
 
     /** @var string */
+    private $googleProductCategory;
+
+    /** @var array<int, int> */
+    private $googleProductCategoryMap = [];
+
+    /** @var string */
     private $imageType;
 
     /** @var bool */
@@ -72,6 +78,8 @@ class InternautenGoogleFeedBuilder
         $this->includeOutOfStock = !empty($settings['include_out_of_stock']);
         $this->useCombinations = !empty($settings['use_combinations']);
         $this->identifierPrefix = (string) ($settings['identifier_prefix'] ?? '');
+        $this->googleProductCategory = (string) ($settings['google_product_category'] ?? '');
+        $this->googleProductCategoryMap = (array) ($settings['google_product_category_map'] ?? []);
         $this->imageType = (string) ($settings['image_type'] ?? '');
         $this->normalizeTitleCase = !empty($settings['normalize_title_case']);
         $this->titleCaseMinLength = max(2, (int) ($settings['title_case_min_length'] ?? 4));
@@ -211,6 +219,10 @@ class InternautenGoogleFeedBuilder
 
         if ($item['product_type'] !== '') {
             $xml .= '      <g:product_type>' . $this->cdata($item['product_type']) . '</g:product_type>' . "\n";
+        }
+
+        if (!empty($item['google_product_category'])) {
+            $xml .= '      <g:google_product_category>' . $this->escape($item['google_product_category']) . '</g:google_product_category>' . "\n";
         }
 
         if ($item['item_group_id'] !== null) {
@@ -358,6 +370,7 @@ class InternautenGoogleFeedBuilder
             'identifier_exists' => ($gtin !== '' || $mpn !== ''),
             'brand' => $brand,
             'product_type' => $this->getCategoryPath($idProduct),
+            'google_product_category' => $this->resolveGoogleProductCategory($idProduct),
             'item_group_id' => $idProductAttribute > 0 ? $this->identifierPrefix . $idProduct : null,
             'shipping_weight' => $this->resolveWeight($row, $idProductAttribute),
         ];
@@ -770,6 +783,18 @@ class InternautenGoogleFeedBuilder
         }
 
         return implode(' > ', $parts);
+    }
+
+    private function resolveGoogleProductCategory($idProduct)
+    {
+        $productCategories = $this->getProductCategories((int) $idProduct);
+        foreach ($productCategories as $idCategory) {
+            if (isset($this->googleProductCategoryMap[(int) $idCategory])) {
+                return (string) $this->googleProductCategoryMap[(int) $idCategory];
+            }
+        }
+
+        return $this->googleProductCategory;
     }
 
     private function addIssue($idProduct, $reference, $severity, $message, $name = '')
