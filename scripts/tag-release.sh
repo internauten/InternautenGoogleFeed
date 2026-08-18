@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/tag-release.sh [--local-only]
+Usage: ./scripts/tag-release.sh [--local-only] [--remote <name>]
 
 Creates a git tag from the module version defined in:
   internautengooglefeed/internautengooglefeed.php
@@ -11,18 +11,29 @@ Creates a git tag from the module version defined in:
 By default, the script creates the local tag and pushes it to `origin`.
 
 Options:
-  --local-only  Create the tag locally without pushing it
-  -h, --help    Show this help
+  --local-only      Create the tag locally without pushing it
+  --remote <name>   Push to a different remote, e.g. my-remote
+  -h, --help        Show this help
 EOF
 }
 
 push_tag=true
+remote_name="origin"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --local-only)
       push_tag=false
       shift
+      ;;
+    --remote)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --remote" >&2
+        usage >&2
+        exit 1
+      fi
+      remote_name="$2"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -78,12 +89,17 @@ else
 fi
 
 if [[ "${push_tag}" == true ]]; then
-  if git -C "${REPO_ROOT}" ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
-    echo "Tag ${tag} already exists on origin."
+  if ! git -C "${REPO_ROOT}" remote get-url "${remote_name}" >/dev/null 2>&1; then
+    echo "Remote '${remote_name}' does not exist." >&2
+    exit 1
+  fi
+
+  if git -C "${REPO_ROOT}" ls-remote --exit-code --tags "${remote_name}" "refs/tags/${tag}" >/dev/null 2>&1; then
+    echo "Tag ${tag} already exists on ${remote_name}."
   else
-    git -C "${REPO_ROOT}" push origin "${tag}"
-    echo "Pushed ${tag} to origin."
+    git -C "${REPO_ROOT}" push "${remote_name}" "${tag}"
+    echo "Pushed ${tag} to ${remote_name}."
   fi
 else
-  echo "Created local tag only. Skipped push to origin."
+  echo "Created local tag only. Skipped push to ${remote_name}."
 fi
