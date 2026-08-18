@@ -6,6 +6,10 @@ Dieses PrestaShop-Modul (getestet mit 9.1.4) stellt alle aktuellen Produkte des 
 
 - `internautengooglefeed/`
 
+## Lizenz
+
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
+
 ## Installation
 
 1. Den Modulordner `internautengooglefeed` in `modules/` der PrestaShop-Installation kopieren.
@@ -235,11 +239,11 @@ Das Release-Tagging erfolgt also immer aus der aktuellen Modulversion, sodass Ve
 
 5. Der GitHub-Workflow erstellt dann automatisch das Release-Asset und veröffentlicht das GitHub Release mit dem passenden ZIP.
 
-# Analyse: Kompatibilität mit Microsoft Merchant Center
+## Analyse: Kompatibilität mit Microsoft Merchant Center
 
 Danke für den Feed! Ich habe ihn genau durchgeschaut. Hier das Ergebnis:
 
-## ✅ Grundsätzlich kompatibel – das passt schon gut
+### ✅ Grundsätzlich kompatibel – das passt schon gut
 
 - Namespace korrekt (`xmlns:g="http://base.google.com/ns/1.0"`) – Microsoft nutzt denselben
 - RSS 2.0 Grundstruktur ✓
@@ -247,13 +251,13 @@ Danke für den Feed! Ich habe ihn genau durchgeschaut. Hier das Ergebnis:
 - Preisformat `100.00 CHF` ✓ (beide erwarten `Zahl Währung`)
 - `condition`, `availability`, `gtin`, `brand` – Standard-konform ✓
 
-## ⚠️ Kritische Punkte für Microsoft Merchant Center
+### ⚠️ Kritische Punkte für Microsoft Merchant Center
 
-### 1. **`localhost:8081`-URLs** 🔴
+#### 1. **`localhost:8081`-URLs** 🔴
 
 Das ist vermutlich nur deine Dev-Umgebung, aber sicherheitshalber der Hinweis: Für den Produktiv-Feed müssen `link` und `image_link` öffentlich erreichbare Domains sein. Microsoft crawlt genau wie Google aktiv und lehnt sonst alles ab.
 
-### 2. **Gutschein-Produkte (id 1-4)** 🟡
+#### 2. **Gutschein-Produkte (id 1-4)** 🟡
 
 Hier gibt's einen wichtigen Unterschied:
 
@@ -262,11 +266,11 @@ Hier gibt's einen wichtigen Unterschied:
 
 **Empfehlung:** Für Gutscheine zusätzlich `<g:google_product_category>` mit korrekter Google-Taxonomie-ID setzen (Gutscheine haben dort eine spezifische Kategorie-ID). Microsoft nutzt teils dieselbe Taxonomie.
 
-### 3. **Fehlendes `g:mpn` bei Produkten ohne GTIN** 🟡
+#### 3. **Fehlendes `g:mpn` bei Produkten ohne GTIN** 🟡
 
 Bei den Gutscheinen fehlt sowohl `gtin` als auch `mpn` – das ist ok, wenn `identifier_exists: no`, aber Microsoft verlangt das teils _strikter validiert_ als Google.
 
-### 4. **`google_product_category` fehlt komplett** 🔴
+#### 4. **`google_product_category` fehlt komplett** 🔴
 
 Das ist der **wichtigste Punkt**. Du nutzt nur `g:product_type` (deine eigene Shop-Kategorie), aber nicht:
 
@@ -277,22 +281,22 @@ Das ist der **wichtigste Punkt**. Du nutzt nur `g:product_type` (deine eigene Sh
 - Google akzeptiert Feeds oft auch ohne, da es automatisch mappt
 - **Microsoft Merchant Center verlangt in der Regel zwingend eine gültige Google Product Taxonomy ID** – ohne diese werden Produkte häufig abgelehnt oder disapproved
 
-### 5. **Fehlendes `g:additional_image_link`, `g:mpn` bei Whisky-Flaschen**
+#### 5. **Fehlendes `g:additional_image_link`, `g:mpn` bei Whisky-Flaschen**
 
 Nicht kritisch, aber für bessere Anzeigenqualität empfehlenswert.
 
-## Microsoft Merchant Center – finaler Status
+### Microsoft Merchant Center – finaler Status
 
 Das Modul ist für die Microsoft-Variante grundsätzlich kompatibel, sofern die Feed-URL öffentlich erreichbar ist und die Taxonomie korrekt gesetzt wird.
 
-### Kritische Punkte für Microsoft
+#### Kritische Punkte für Microsoft
 
 1. Öffentlich erreichbare Produkt-URLs und Bild-URLs erforderlich.
 2. `google_product_category` bzw. die Kategorie-Mapping-IDs dürfen nicht fehlen.
 3. Produkte ohne GTIN/MPN sind möglich, aber riskanter und brauchen ein sauberes Mapping + Marke.
 4. Der Feed bleibt weiterhin Google-kompatibel und nutzt dieselben Standard-Namespaces.
 
-### Aktueller Stand
+#### Aktueller Stand
 
 - XML-Struktur: kompatibel mit Google/Microsoft Merchant
 - Taxonomie-Mapping: implementiert und konfigurierbar
@@ -308,3 +312,9 @@ Der Schutz soll über ein im BO konfigurierbares Token erfolgen. Nur wenn dies s
 Im BO soll zusätzlich eine Excludeliste von Kategorien pflegbar sein. Wenn eine Kategorie da drinnen ist, werden diese Daten nicht übertragen.
 
 Zudem soll im BO auch eine Funktion hinterlegt werden, die das Feed-Ergebnis prüft und bei Problemen diese auflistet (z. B. fehlender Preis etc.).
+
+## License
+
+This project is licensed under the MIT License. See details [`LICENSE`](LICENSE).
+
+Copyright (c) 2026 die.internauten.ch GmbH
